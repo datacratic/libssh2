@@ -1,0 +1,95 @@
+@import "version.inc";
+@import "outercurve.inc";
+
+#define { 
+    flavor: "${COMP??vc10}"; 
+    arch : "${PLAT??x86}";
+}
+
+package {
+    name: "libssh2[${flavor}]";
+    version: "${package-version}";
+    arch : "${arch}";
+    display-name: "libssh2";
+    location: "http://coapp.org/repository/${OutputFilename}";
+    feed: "http://coapp.org/repository/packages.atom.xml";
+    publisher: "CoApp Project";
+}
+
+metadata {
+    summary: "libssh2";
+    description:  @"libssh2 is a client-side C library implementing the SSH2 protocol";
+    icon: @"libssh2.png";
+    author-version : "${author-version}";
+    bug-tracker: "https://github.com/coapp-packages/libssh2/issues";
+    stability : "0";
+    licenses : {
+        CUSTOM
+    };
+}
+
+license[CUSTOM] {
+    license-url: "\README";
+    license-type: "CUSTOM";
+}
+
+compatability-policy {
+    minimum: "1.0";
+    maximum: "${OneLessThanCurrent}"; // this is the default
+    versions : {
+        "1.0",
+    }; // if not specified, find the versions by looking at the feeds and finding all the major/minor versions in range.
+}
+
+requires {
+    package: "openssl[${flavor}]-1.0.0-${Package.Architecture}";
+    package: "zlib[${flavor}]-1.2.5-${Package.Architecture}";
+}
+
+files[dlls] {
+    root: @"..\output\vc10\${arch}\DLLRelease\bin";
+  
+    include: {
+        "*.dll",
+    };
+    
+    trim-path: all;
+};
+
+files[files-to-sign] {
+    include: { 
+        dlls,
+    };    
+}
+
+assembly[libssh2[${flavor}]] {
+    include : {
+        dlls
+    };
+}
+
+manifest[fordlls] {
+    assembly : {
+        "openssl[${flavor}]",
+        "zlib[${flavor}]"
+    };
+    
+    include : { 
+        dlls
+    };
+}
+
+signing {
+    attributes : {
+        company="Outercurve Foundation",
+        description="libssh2",
+        product-name="libssh2",
+        product-version="${package-version}",
+        file-version="${package-version}",
+    };
+    
+    replace-signature: true; 
+    include: { 
+        files-to-sign
+    };    
+}

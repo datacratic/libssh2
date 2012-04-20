@@ -1,0 +1,62 @@
+@import "version.inc" ;
+@import "outercurve.inc" ;
+
+#define { 
+    flavor: "${COMP??vc10}"; 
+    arch : "${PLAT??x86}";
+}
+
+package {
+    name: "libssh2-dev-common";
+    version: "${package-version}";
+    arch: any;
+    display-name: "libssh2 Dev Library-common";
+}
+
+metadata {
+    summary: "The libssh2 developer library (common)";
+    description: @"libssh2 is a client-side C library implementing the SSH2 protocol"; 
+    icon: @"libssh2.png";
+    author-version : "${author-version}";
+    bug-tracker: "https://github.com/coapp-packages/libssh2/issues";
+    stability : "0";
+    licenses : {
+        CUSTOM
+    };
+}
+
+files[headers] {
+    root: @"..\include";
+
+    include: {
+        "*.h",
+    };
+    
+    trim-path:all;
+    
+    destination-path:"include";
+}
+
+
+files[docs] {
+    root: @"..\docs";
+
+    include: {
+        "*"
+    };
+    
+    trim-path:all;
+    
+    destination-path:"docs";
+
+}
+
+developer-library[libssh2] {
+    headers: { 
+        headers
+    };
+    
+    docs: {
+        docs
+    };
+}

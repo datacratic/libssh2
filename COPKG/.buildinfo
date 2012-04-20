@@ -1,0 +1,167 @@
+/* target information */
+@import "version.inc";
+
+#product-info  {
+    product-name: "libssh2";
+    version: "${author-version}";
+    original-source-location: "git://git.libssh2.org/libssh2.git";
+    original-source-website: "http://www.libssh2.org/";
+    license: "BSD";
+    packager: "Hamish C";
+}
+
+test {
+    set: {
+        COMPILERS="${COMPILERS??vc10}";
+        PLAT="${PLAT??x86,x64}";
+    };
+
+    default : false;
+    uses: release;
+    build-command: @"
+	    for %%A in (${COMPILERS}) do (
+            for %%B in (${PLAT}) do (
+                call :testroutine ""%%A"" ""%%B""
+            )
+        )
+        goto :eof
+
+:testroutine
+        pushd output\%~1\%~2\ReleaseDLL\bin\
+                
+       
+
+        goto passed
+:failed
+        echo ""Test(s) failed for (%~1,%~2)""
+:passed
+        popd
+        goto :eof
+    ";
+};
+
+package {
+    set: COMP="${COMP??vc10}";
+    set: PLAT="${PLAT??x86, x64}";
+    default : false;
+    uses : sign;
+
+    targets: { 
+        @"copkg\libssh2[vc10]-${package-version}-x86.msi",
+        @"copkg\libssh2-dev[vc10]-${package-version}-x86.msi",
+        @"copkg\libssh2-dev-common-${package-version}-any.msi",
+        @"copkg\libssh2[vc10]-${package-version}-x64.msi",
+        @"copkg\libssh2-dev[vc10]-${package-version}-x64.msi"
+    };
+ 
+    build-command : @"
+        pushd COPKG
+        autopackage libssh2-dev-common.autopkg || goto failed
+        
+        for %%A in (${COMP}) do (
+            for %%B in (${PLAT}) do (
+                autopackage --COMP=%%A --PLAT=%%B libssh2.autopkg libssh2-dev.autopkg || goto failed
+            )
+        )
+        popd
+        ptk update-version
+    ";
+
+	clean-command: @"del COPKG\*.msi COPKG\*.wixpdb";
+};
+
+
+update-version {
+    default : false;
+    
+    build-command : @"
+        REM auto-increment version.inc file...
+        
+        pushd COPKG
+        setlocal EnableDelayedExpansion
+        for /F ""tokens=4,5,6,7  delims=.; "" %%v in (version.inc) do (
+            set /a build=%%y + 1
+            set VERSTRING=#define { package-version: %%v.%%w.%%x.!build!; }
+        )
+        echo !VERSTRING! > version.inc
+        popd
+    ";
+}
+
+release {
+    set: {
+        COMPILERS="${COMPILERS??vc10}";
+        PLAT="${PLAT??x86, x64}";
+        CONFIG="Release";
+    };
+
+    build-command: @"
+        for %%A in (${COMPILERS}) do (
+            for %%B in (${PLAT}) do (
+			    ptk -nologo base --CONFIG=${CONFIG} --COMP=%%A --PLAT=%%B
+		    )
+        )
+    ";
+};
+
+sign {
+    default : false;
+    uses: release;
+    build-command: @"simplesigner.exe --nologo --sign output\**.dll output\**.exe";
+};
+
+
+x86 {
+    set: PLAT=x86;
+    uses: base;
+};
+
+x64 {
+    set: PLAT=x64;
+    uses: base;
+};
+
+base {
+    requires: "openssl-dev[${COMP}]-1.0.0-${PLAT}";
+    requires: "zlib-dev[${COMP}]-1.2.5-${PLAT}";
+
+    set: {
+        CONFIG="${CONFIG??Release}";
+        COMP="${COMP??vc10}";
+        PLAT="${PLAT??x86}";
+    };
+
+    compiler:"${COMP}";
+    platform:"${PLAT}";
+
+    targets: { 
+        "output\${COMP}\${PLAT}\DLL${CONFIG}\bin\libssh2.lib",
+        "output\${COMP}\${PLAT}\DLL${CONFIG}\bin\libssh2.dll",
+        "output\${COMP}\${PLAT}\LIB${CONFIG}\bin\libssh2s.lib",
+        
+    };
+     
+    build-command:@"
+        REM this makes it so that DLLs can have their own SxS Activation Context in an embedded resource.
+		echo %_CL% | findstr ISOLATION_AWARE || set _CL=%CL% /D ISOLATION_AWARE_ENABLED
+        
+        if ""${PLAT}"" == ""x86"" (
+            msbuild /p:Platform=win32 /p:Configuration=""DLLRelease"" win32\libssh2.sln
+            msbuild /p:Platform=win32 /p:Configuration=""LIBRelease"" win32\libssh2.sln
+        ) else (
+            msbuild /p:Platform=${PLAT} /p:Configuration=""DLLRelease"" win32\libssh2.sln
+            msbuild /p:Platform=${PLAT} /p:Configuration=""LIBRelease"" win32\libssh2.sln
+        )
+       
+    ";
+     
+    clean-command:@"
+        pushd win32
+        attrib -S -H -R *
+        del /Q *.sdf *.suo *.user 2>NUL
+        if exist ipch rmdir /S /Q ipch 2>NUL 
+        if exist output rmdir /S /Q output 2>NUL 
+        popd
+        if exist output rmdir /S /Q output 2>NUL 
+    ";
+};
