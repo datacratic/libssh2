@@ -37,13 +37,22 @@
  */
 
 #include "libssh2_priv.h"
+#include <pthread.h>
+#include <errno.h>
 
 static int _libssh2_initialized = 0;
 static int _libssh2_init_flags = 0;
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 LIBSSH2_API int
 libssh2_init(int flags)
 {
+    int res = pthread_mutex_lock(&mutex);
+    if (res == -1) {
+        printf("pthread_mutex_lock: %s", strerror(errno));
+        abort();
+    }
+
     if (_libssh2_initialized == 0 && !(flags & LIBSSH2_INIT_NO_CRYPTO)) {
         libssh2_crypto_init();
         _libssh2_init_aes_ctr();
@@ -52,14 +61,26 @@ libssh2_init(int flags)
     _libssh2_initialized++;
     _libssh2_init_flags |= flags;
 
+    res = pthread_mutex_unlock(&mutex);
+    if (res == -1) {
+        printf("pthread_mutex_unlock: %s", strerror(errno));
+        abort();
+    }
+
     return 0;
 }
 
 LIBSSH2_API void
 libssh2_exit(void)
 {
+    int res = pthread_mutex_lock(&mutex);
+    if (res == -1) {
+        printf("pthread_mutex_lock: %s", strerror(errno));
+        abort();
+    }
+
     if (_libssh2_initialized == 0)
-        return;
+        goto out;
 
     _libssh2_initialized--;
 
@@ -67,6 +88,12 @@ libssh2_exit(void)
         libssh2_crypto_exit();
     }
 
+ out:
+    res = pthread_mutex_unlock(&mutex);
+    if (res == -1) {
+        printf("pthread_mutex_unlock: %s", strerror(errno));
+        abort();
+    }
     return;
 }
 
